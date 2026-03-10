@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap');
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap');*/
+
+@layer base {
+  :root {
+    --background: 200 50% 97%;
+    --foreground: 240 20% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 20% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 20% 20%;
+
+    --primary: 270 40% 72%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 60% 85%;
+    --secondary-foreground: 240 20% 20%;
+
+    --muted: 200 30% 93%;
+    --muted-foreground: 240 10% 46%;
+
+    --accent: 150 50% 82%;
+    --accent-foreground: 240 20% 20%;
+
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 200 30% 88%;
+    --input: 200 30% 88%;
+    --ring: 270 40% 72%;
+
+    --radius: 1rem;
+
+    --pastel-blue: 200 60% 85%;
+    --pastel-purple: 270 40% 72%;
+    --mint: 150 50% 82%;
+    --peach: 15 100% 90%;
+    --banana: 50 100% 85%;
+
+    --sidebar-background: 270 40% 96%;
+    --sidebar-foreground: 240 20% 20%;
+    --sidebar-primary: 270 40% 72%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 30% 90%;
+    --sidebar-accent-foreground: 240 20% 20%;
+    --sidebar-border: 270 20% 90%;
+    --sidebar-ring: 270 40% 72%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-nunito;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fredoka', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-fredoka {
+    font-family: 'Fredoka', sans-serif;
+  }
+  .font-nunito {
+    font-family: 'Nunito', sans-serif;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes slide-up {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px hsl(var(--banana) / 0.5); }
+  50% { box-shadow: 0 0 20px hsl(var(--banana) / 0.8); }
+}
