@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const StudentLogin = () => {
+const SchoolAdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -25,45 +25,52 @@ const StudentLogin = () => {
     setLoading(false);
 
     if (error) {
-      setError("Invalid email or password. Please try again.");
+      setError("Invalid credentials. Please try again.");
     } else {
-      navigate("/dashboard");
+      navigate("/school-admin/dashboard");
     }
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="max-w-md w-full animate-slide-up">
-        <div className="text-center mb-8">
-          <span className="text-6xl block mb-4 animate-float">🎒</span>
-          <h1 className="font-fredoka text-3xl font-bold">Student Login</h1>
-          <p className="text-muted-foreground mt-2">Ready to code some more?</p>
+      <div className="max-w-sm w-full">
+        <div className="text-center mb-6">
+          <div className="text-4xl mb-3">🏫</div>
+          <h1 className="font-fredoka text-2xl font-bold text-foreground">
+            School Admin Login
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your school
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-card rounded-3xl p-8 shadow-playful space-y-6">
+        <form
+          onSubmit={handleLogin}
+          className="bg-card rounded-xl p-6 shadow-sm border border-border space-y-4"
+        >
           <div className="space-y-2">
-            <Label className="font-semibold text-base">Email</Label>
+            <Label className="text-sm font-medium">Email</Label>
             <Input
               type="email"
-              placeholder="alex@kids.com"
+              placeholder="admin@yourschool.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-xl h-12 text-base border-2 focus:border-primary"
+              className="rounded-lg"
             />
           </div>
           <div className="space-y-2">
-            <Label className="font-semibold text-base">Password</Label>
+            <Label className="text-sm font-medium">Password</Label>
             <Input
               type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-xl h-12 text-base border-2 focus:border-primary"
+              className="rounded-lg"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm font-medium">
+            <div className="bg-red-50 text-red-600 rounded-lg px-4 py-3 text-sm font-medium">
               ❌ {error}
             </div>
           )}
@@ -71,20 +78,14 @@ const StudentLogin = () => {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full rounded-2xl h-12 text-lg font-bold shadow-playful hover:scale-[1.02] transition-transform"
+            className="w-full rounded-lg"
           >
-            {loading ? "Logging in..." : "🚀 Let's Go!"}
+            {loading ? "Signing in..." : "Sign In"}
           </Button>
         </form>
-
-        <p className="text-center mt-6">
-          <Button variant="link" className="text-muted-foreground p-0" onClick={() => navigate("/role-select")}>
-            ← Back
-          </Button>
-        </p>
       </div>
     </div>
   );
 };
 
-export default StudentLogin;
+export default SchoolAdminLogin;

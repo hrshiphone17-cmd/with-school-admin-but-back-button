@@ -77,13 +77,7 @@ const TeacherLogin = () => {
           </Button>
         </form>
 
-        <p className="text-center mt-6 text-muted-foreground">
-          Don't have an account?{" "}
-          <Button variant="link" className="text-primary font-semibold p-0" onClick={() => navigate("/signup")}>
-            Sign up free
-          </Button>
-        </p>
-        <p className="text-center mt-2">
+        <p className="text-center mt-6">
           <Button variant="link" className="text-muted-foreground p-0" onClick={() => navigate("/role-select")}>
             ← Back
           </Button>

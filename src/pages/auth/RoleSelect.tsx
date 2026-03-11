@@ -33,13 +33,7 @@ const RoleSelect = () => {
           </button>
         </div>
 
-        <p className="text-center mt-8 text-muted-foreground">
-          Don't have an account?{" "}
-          <Button variant="link" className="text-primary font-semibold p-0" onClick={() => navigate("/signup")}>
-            Sign up for free!
-          </Button>
-        </p>
-        <p className="text-center mt-2">
+        <p className="text-center mt-8">
           <Button variant="link" className="text-muted-foreground p-0" onClick={() => navigate("/")}>
             ← Back to home
           </Button>

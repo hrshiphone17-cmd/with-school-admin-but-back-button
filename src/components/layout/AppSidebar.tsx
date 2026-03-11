@@ -1,11 +1,11 @@
 import {
   LayoutDashboard,
   BookOpen,
-  Gamepad2,
   ClipboardList,
   GraduationCap,
   Users,
   BarChart3,
+  Trophy,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -34,6 +34,7 @@ const teacherItems = [
   { title: "Classrooms", url: "/teacher/classrooms", icon: Users },
   { title: "Assignments", url: "/teacher/assignments", icon: ClipboardList },
   { title: "Analytics", url: "/teacher/analytics", icon: BarChart3 },
+  { title: "Leaderboard", url: "/teacher/leaderboard", icon: Trophy },
   { title: "Courses", url: "/courses", icon: BookOpen },
 ];
 

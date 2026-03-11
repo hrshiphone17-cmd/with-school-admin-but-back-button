@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const Exercise = () => {
   const { exerciseId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [exercise, setExercise] = useState<any>(null);
   const [courseName, setCourseName] = useState("");
@@ -24,7 +24,6 @@ const Exercise = () => {
     if (!exerciseId || !user) return;
 
     const fetchExercise = async () => {
-      // Fetch exercise
       const { data: exerciseData } = await supabase
         .from("exercises")
         .select("*")
@@ -33,7 +32,6 @@ const Exercise = () => {
 
       if (!exerciseData) { setLoading(false); return; }
 
-      // Fetch module to get course
       const { data: moduleData } = await supabase
         .from("modules")
         .select("*, courses(title)")
@@ -44,7 +42,6 @@ const Exercise = () => {
         setCourseName(moduleData.courses.title);
       }
 
-      // Check if already completed
       const { data: completionData } = await supabase
         .from("completions")
         .select("id")
@@ -72,7 +69,6 @@ const Exercise = () => {
   const handleSubmit = async () => {
     if (!user || !exercise || submitted) return;
 
-    // Save completion to Supabase
     const { error } = await supabase.from("completions").insert({
       student_id: user.id,
       exercise_id: exercise.id,
@@ -80,7 +76,6 @@ const Exercise = () => {
     });
 
     if (!error) {
-      // Update user XP and level
       const newXP = user.xp + exercise.xp_reward;
       const newLevel = Math.floor(newXP / 500) + 1;
 
@@ -88,6 +83,9 @@ const Exercise = () => {
         .from("users")
         .update({ xp: newXP, level: newLevel })
         .eq("id", user.id);
+
+      // Update the UI instantly without needing a page reload
+      updateUser({ xp: newXP, level: newLevel });
 
       setSubmitted(true);
       setOutput((prev) => [

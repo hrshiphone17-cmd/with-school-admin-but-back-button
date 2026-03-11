@@ -5,11 +5,12 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: "student" | "teacher" | "admin";
+  role: "student" | "teacher" | "admin" | "school_admin";
   avatar: string;
   xp: number;
   level: number;
   streak: number;
+  school_id?: string;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   signup: (email: string, password: string, name: string, role: "student" | "teacher") => Promise<{ error: any }>;
   login: (email: string, password: string) => Promise<{ error: any }>;
   logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
 }
 
@@ -27,6 +29,7 @@ const AuthContext = createContext<AuthContextType>({
   signup: async () => ({ error: null }),
   login: async () => ({ error: null }),
   logout: async () => {},
+  updateUser: () => {},
   isAuthenticated: false,
 });
 
@@ -95,6 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prev) => prev ? { ...prev, ...updates } : prev);
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -102,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signup,
       login,
       logout,
+      updateUser,
       isAuthenticated: !!user,
     }}>
       {!loading && children}
