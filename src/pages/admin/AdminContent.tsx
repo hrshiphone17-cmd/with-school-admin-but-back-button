@@ -1,130 +1,127 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { mockCourses } from "@/data/mockCourses";
-import { auditLog } from "@/lib/auditLogger";
-import { useAuth } from "@/contexts/AuthContext";
-import { Plus } from "lucide-react";
-
-const allExercises = mockCourses.flatMap((c) =>
-  c.modules.flatMap((m) => m.exercises.map((e) => ({ ...e, courseName: c.title })))
-);
+import { supabase } from "@/lib/supabase";
+import { Loader2 } from "lucide-react";
 
 const AdminContent = () => {
-  const { user: admin } = useAuth();
-  const [published, setPublished] = useState<Set<string>>(new Set(mockCourses.map((c) => c.id)));
+  const [courses, setCourses] = useState<any[]>([]);
+  const [exercises, setExercises] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const togglePublish = (id: string) => {
-    setPublished((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      auditLog(admin?.id || "", next.has(id) ? "publish" : "unpublish", id);
-      return next;
-    });
-  };
+  useEffect(() => {
+    const fetchAll = async () => {
+      const [{ data: coursesData }, { data: exercisesData }] = await Promise.all([
+        supabase.from("courses").select("*").order("created_at"),
+        supabase.from("exercises").select("*, modules(title, courses(title))").order("order_index"),
+      ]);
+      setCourses(coursesData || []);
+      setExercises(exercisesData || []);
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-fredoka text-2xl font-bold text-foreground">Content</h1>
-      </div>
+      <h1 className="font-fredoka text-2xl font-bold mb-6 text-foreground">Content</h1>
       <Tabs defaultValue="courses">
         <TabsList>
-          <TabsTrigger value="courses">Courses ({mockCourses.length})</TabsTrigger>
-          <TabsTrigger value="exercises">Exercises ({allExercises.length})</TabsTrigger>
+          <TabsTrigger value="courses">Courses ({courses.length})</TabsTrigger>
+          <TabsTrigger value="exercises">Exercises ({exercises.length})</TabsTrigger>
         </TabsList>
+
+        {/* Courses */}
         <TabsContent value="courses">
-          <div className="flex justify-end mb-3">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> Add Course</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Add Course</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <div><Label>Title</Label><Input placeholder="Course title" /></div>
-                  <div><Label>Description</Label><Textarea placeholder="Description" /></div>
-                  <Button className="w-full">Create (UI Only)</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Icon</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Difficulty</TableHead>
-                    <TableHead>Exercises</TableHead>
-                    <TableHead>Published</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockCourses.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="text-xl">{c.icon}</TableCell>
-                      <TableCell className="font-medium text-foreground">{c.title}</TableCell>
-                      <TableCell><Badge variant="outline">{c.difficulty}</Badge></TableCell>
-                      <TableCell>{c.totalExercises}</TableCell>
-                      <TableCell><Switch checked={published.has(c.id)} onCheckedChange={() => togglePublish(c.id)} /></TableCell>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : courses.length === 0 ? (
+                <p className="text-muted-foreground text-sm p-6">No courses found.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Icon</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Difficulty</TableHead>
+                      <TableHead>Color</TableHead>
+                      <TableHead>Created</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {courses.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="text-xl">{c.icon}</TableCell>
+                        <TableCell className="font-medium">{c.title}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{c.difficulty}</Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{c.color}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {new Date(c.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Exercises */}
         <TabsContent value="exercises">
-          <div className="flex justify-end mb-3">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> Add Exercise</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Add Exercise</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <div><Label>Title</Label><Input placeholder="Exercise title" /></div>
-                  <div><Label>Instructions</Label><Textarea placeholder="Instructions" /></div>
-                  <Button className="w-full">Create (UI Only)</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Course</TableHead>
-                    <TableHead>Difficulty</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>XP</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allExercises.map((e) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="font-medium text-foreground">{e.title}</TableCell>
-                      <TableCell className="text-muted-foreground">{e.courseName}</TableCell>
-                      <TableCell><Badge variant="outline">{e.difficulty}</Badge></TableCell>
-                      <TableCell><Badge variant="secondary">{e.type}</Badge></TableCell>
-                      <TableCell>{e.xpReward}</TableCell>
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : exercises.length === 0 ? (
+                <p className="text-muted-foreground text-sm p-6">No exercises found.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Course</TableHead>
+                      <TableHead>Module</TableHead>
+                      <TableHead>Difficulty</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>XP</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {exercises.map((e) => (
+                      <TableRow key={e.id}>
+                        <TableCell className="font-medium">{e.title}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {e.modules?.courses?.title || "—"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {e.modules?.title || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{e.difficulty}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{e.type}</Badge>
+                        </TableCell>
+                        <TableCell className="font-semibold text-yellow-600">
+                          ⭐ {e.xp_reward}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

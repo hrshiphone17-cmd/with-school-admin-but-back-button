@@ -1,58 +1,102 @@
+import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { mockClassrooms } from "@/data/mockClassrooms";
-import { mockUsers } from "@/data/mockUsers";
-import { auditLog } from "@/lib/auditLogger";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { Archive } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Loader2 } from "lucide-react";
+
+interface Classroom {
+  id: string;
+  name: string;
+  code: string;
+  teacher_id: string;
+  created_at: string;
+  teacher_name?: string;
+  student_count?: number;
+}
 
 const AdminClassrooms = () => {
-  const { user: admin } = useAuth();
-  const { toast } = useToast();
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const getTeacherName = (id: string) => mockUsers.find((u) => u.id === id)?.name || "Unknown";
+  useEffect(() => {
+    const fetchClassrooms = async () => {
+      // Fetch classrooms with teacher name
+      const { data: classroomData } = await supabase
+        .from("classrooms")
+        .select("id, name, code, teacher_id, created_at, users(name)")
+        .order("created_at", { ascending: false });
 
-  const handleArchive = (id: string, name: string) => {
-    auditLog(admin?.id || "", "archive_classroom", id);
-    toast({ title: "Classroom archived", description: `${name} archived (mock).` });
-  };
+      if (!classroomData) { setLoading(false); return; }
+
+      // Fetch student counts for each classroom
+      const withCounts = await Promise.all(
+        classroomData.map(async (c: any) => {
+          const { count } = await supabase
+            .from("classroom_students")
+            .select("*", { count: "exact", head: true })
+            .eq("classroom_id", c.id);
+          return {
+            ...c,
+            teacher_name: c.users?.name || "Unknown",
+            student_count: count || 0,
+          };
+        })
+      );
+
+      setClassrooms(withCounts);
+      setLoading(false);
+    };
+
+    fetchClassrooms();
+  }, []);
 
   return (
     <AdminLayout>
-      <h1 className="font-fredoka text-2xl font-bold mb-6 text-foreground">Classrooms</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="font-fredoka text-2xl font-bold text-foreground">
+          Classrooms ({classrooms.length})
+        </h1>
+      </div>
+
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Teacher</TableHead>
-                <TableHead>Students</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockClassrooms.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium text-foreground">{c.name}</TableCell>
-                  <TableCell className="font-mono text-muted-foreground">{c.code}</TableCell>
-                  <TableCell>{getTeacherName(c.teacherId)}</TableCell>
-                  <TableCell>{c.studentIds.length}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.createdAt}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={() => handleArchive(c.id, c.name)}>
-                      <Archive className="h-3.5 w-3.5" /> Archive
-                    </Button>
-                  </TableCell>
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : classrooms.length === 0 ? (
+            <p className="text-muted-foreground text-sm p-6">No classrooms yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Join Code</TableHead>
+                  <TableHead>Teacher</TableHead>
+                  <TableHead>Students</TableHead>
+                  <TableHead>Created</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {classrooms.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">🏫 {c.name}</TableCell>
+                    <TableCell>
+                      <span className="font-mono bg-muted px-2 py-1 rounded text-sm">
+                        {c.code}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{c.teacher_name}</TableCell>
+                    <TableCell>{c.student_count}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {new Date(c.created_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </AdminLayout>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -11,24 +11,36 @@ const StudentLogin = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+
+  // If already logged in, redirect away immediately
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === "admin") navigate("/admin/dashboard", { replace: true });
+    else if (user.role === "school_admin") navigate("/school-admin/dashboard", { replace: true });
+    else if (user.role === "teacher") navigate("/teacher/dashboard", { replace: true });
+    else navigate("/student/dashboard", { replace: true });
+  }, [user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
     if (!email.trim()) return setError("Please enter your email");
     if (!password.trim()) return setError("Please enter your password");
 
     setLoading(true);
-    const { error } = await login(email, password);
+    const { error, role } = await login(email, password);
     setLoading(false);
 
     if (error) {
       setError("Invalid email or password. Please try again.");
-    } else {
-      navigate("/dashboard");
+      return;
     }
+
+    if (role === "admin") navigate("/admin/dashboard", { replace: true });
+    else if (role === "school_admin") navigate("/school-admin/dashboard", { replace: true });
+    else if (role === "teacher") navigate("/teacher/dashboard", { replace: true });
+    else navigate("/student/dashboard", { replace: true });
   };
 
   return (

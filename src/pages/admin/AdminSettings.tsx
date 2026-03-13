@@ -6,8 +6,6 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { auditLog } from "@/lib/auditLogger";
-import { useAuth } from "@/contexts/AuthContext";
 
 const badges = [
   { id: "first-code", label: "First Code" },
@@ -21,23 +19,24 @@ const badges = [
 ];
 
 const AdminSettings = () => {
-  const { user: admin } = useAuth();
   const { toast } = useToast();
   const [leaderboard, setLeaderboard] = useState(true);
   const [streaks, setStreaks] = useState(true);
   const [xpMultiplier, setXpMultiplier] = useState([1]);
-  const [enabledBadges, setEnabledBadges] = useState<Set<string>>(new Set(badges.map((b) => b.id)));
+  const [enabledBadges, setEnabledBadges] = useState<Set<string>>(
+    new Set(badges.map((b) => b.id))
+  );
 
   const toggleBadge = (id: string) => {
     setEnabledBadges((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
   const handleSave = () => {
-    auditLog(admin?.id || "", "update_settings", JSON.stringify({ leaderboard, streaks, xpMultiplier: xpMultiplier[0], enabledBadges: [...enabledBadges] }));
     toast({ title: "Settings saved", description: "All changes applied successfully." });
   };
 
@@ -63,8 +62,15 @@ const AdminSettings = () => {
           <CardHeader><CardTitle className="font-fredoka text-base">XP Multiplier</CardTitle></CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
-              <Slider value={xpMultiplier} onValueChange={setXpMultiplier} min={0.5} max={3} step={0.25} className="flex-1" />
-              <span className="text-lg font-bold text-foreground w-12 text-right">{xpMultiplier[0]}x</span>
+              <Slider
+                value={xpMultiplier}
+                onValueChange={setXpMultiplier}
+                min={0.5}
+                max={3}
+                step={0.25}
+                className="flex-1"
+              />
+              <span className="text-lg font-bold w-12 text-right">{xpMultiplier[0]}x</span>
             </div>
           </CardContent>
         </Card>

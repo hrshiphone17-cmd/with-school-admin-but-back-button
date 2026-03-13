@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signup: (email: string, password: string, name: string, role: "student" | "teacher") => Promise<{ error: any }>;
-  login: (email: string, password: string) => Promise<{ error: any }>;
+  login: (email: string, password: string) => Promise<{ error: any; role?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
@@ -45,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .single();
     if (error) console.error("fetchProfile error:", error);
     if (!error && data) setUser(data);
+    return data;
   };
 
   useEffect(() => {
@@ -89,8 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error };
+
+    // Fetch profile immediately and return role
+    const profile = await fetchProfile(data.user.id);
+    return { error: null, role: profile?.role };
   };
 
   const logout = async () => {

@@ -14,11 +14,11 @@ const Landing = () => {
           <span className="font-fredoka text-2xl font-bold text-foreground">Codey Kids</span>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="ghost" className="rounded-xl font-semibold text-muted-foreground" onClick={() => navigate("/school-admin/login")}>
+            🏫 School Login
+          </Button>
           <Button variant="ghost" className="rounded-xl font-semibold" onClick={() => navigate("/role-select")}>
             Log In
-          </Button>
-          <Button className="rounded-xl bg-primary font-semibold shadow-playful hover:shadow-playful-lg transition-all" onClick={() => navigate("/signup")}>
-            Sign Up Free
           </Button>
         </div>
       </nav>
@@ -44,14 +44,7 @@ const Landing = () => {
               >
                 🚀 Start Coding!
               </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="rounded-2xl text-lg h-14 px-8 font-bold border-2"
-                onClick={() => navigate("/signup")}
-              >
-                👨‍👩‍👧 For Parents
-              </Button>
+              
             </div>
           </div>
 
@@ -135,14 +128,6 @@ const Landing = () => {
               </div>
             ))}
           </div>
-          <Button
-            size="lg"
-            variant="outline"
-            className="rounded-2xl text-lg h-14 px-8 font-bold border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-            onClick={() => navigate("/signup")}
-          >
-            Get Started for Free
-          </Button>
         </div>
       </section>
 
