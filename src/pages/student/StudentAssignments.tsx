@@ -15,20 +15,24 @@ const StudentAssignments = () => {
     if (!user) return;
 
     const fetchAssignments = async () => {
-      // Find student's classroom
+      // Find ALL classrooms the student belongs to
       const { data: memberData } = await supabase
         .from("classroom_students")
         .select("classroom_id")
-        .eq("student_id", user.id)
-        .single();
+        .eq("student_id", user.id);
 
-      if (!memberData) { setLoading(false); return; }
+      if (!memberData || memberData.length === 0) {
+        setLoading(false);
+        return;
+      }
 
-      // Fetch assignments for that classroom
+      const classroomIds = memberData.map((m) => m.classroom_id);
+
+      // Fetch assignments for all classrooms
       const { data: assignmentsData } = await supabase
         .from("assignments")
         .select("*")
-        .eq("classroom_id", memberData.classroom_id)
+        .in("classroom_id", classroomIds)
         .order("due_date");
 
       if (!assignmentsData || assignmentsData.length === 0) {
@@ -43,7 +47,7 @@ const StudentAssignments = () => {
         .select("assignment_id, exercise_id, exercises(*)")
         .in("assignment_id", assignmentIds);
 
-      // Fetch student completions
+      // Fetch THIS student's completions only
       const { data: completionsData } = await supabase
         .from("completions")
         .select("exercise_id")
@@ -96,10 +100,13 @@ const StudentAssignments = () => {
         ) : (
           <div className="space-y-4">
             {assignments.map((assignment) => {
-              const doneCount = assignment.exercises.filter(
-                (e: any) => e && completedIds.has(e.id)
+              const validExercises = assignment.exercises.filter((e: any) => e);
+              const doneCount = validExercises.filter(
+                (e: any) => completedIds.has(e.id)
               ).length;
-              const total = assignment.exercises.length;
+              const total = validExercises.length;
+              const allDone = total > 0 && doneCount === total;
+              const progressPercent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
               return (
                 <div key={assignment.id} className="bg-card rounded-2xl p-5 shadow-playful">
@@ -107,20 +114,28 @@ const StudentAssignments = () => {
                     <div>
                       <h3 className="font-fredoka text-lg font-bold">{assignment.title}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Due: {assignment.due_date}
+                        Due: {new Date(assignment.due_date).toLocaleDateString()}
                       </p>
                     </div>
                     <span className={`rounded-lg px-3 py-1 text-xs font-bold ${
-                      doneCount === total && total > 0
+                      allDone
                         ? "bg-green-100 text-green-700"
                         : "bg-banana/50 text-foreground"
                     }`}>
                       {doneCount}/{total} done
                     </span>
                   </div>
+
+                  {/* Progress bar */}
+                  <div className="bg-muted rounded-full h-2 overflow-hidden mb-3">
+                    <div
+                      className={`h-full rounded-full transition-all ${allDone ? "bg-green-500" : "bg-primary"}`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+
                   <div className="space-y-2">
-                    {assignment.exercises.map((ex: any) => {
-                      if (!ex) return null;
+                    {validExercises.map((ex: any) => {
                       const isCompleted = completedIds.has(ex.id);
                       return (
                         <button
@@ -133,7 +148,9 @@ const StudentAssignments = () => {
                           className="w-full flex items-center gap-3 bg-muted rounded-xl p-3 text-left hover:bg-primary/10 transition-all text-sm"
                         >
                           <span>{isCompleted ? "✅" : "⬜"}</span>
-                          <span className="flex-1">{ex.title}</span>
+                          <span className={`flex-1 ${isCompleted ? "line-through text-muted-foreground" : ""}`}>
+                            {ex.title}
+                          </span>
                           <span className="text-xs text-primary font-semibold">
                             +{ex.xp_reward} XP
                           </span>

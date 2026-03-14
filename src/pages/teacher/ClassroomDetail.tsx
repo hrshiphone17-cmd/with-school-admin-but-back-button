@@ -27,29 +27,61 @@ const ClassroomDetail = () => {
       if (!classroomData) { setLoading(false); return; }
       setClassroom(classroomData);
 
-      // Fetch students
+      // Fetch students in this classroom
       const { data: studentLinks } = await supabase
         .from("classroom_students")
         .select("student_id")
         .eq("classroom_id", classroomId);
 
+      let studentsData: any[] = [];
       if (studentLinks && studentLinks.length > 0) {
         const studentIds = studentLinks.map((s) => s.student_id);
-        const { data: studentsData } = await supabase
+        const { data } = await supabase
           .from("users")
           .select("*")
           .in("id", studentIds);
-        setStudents(studentsData || []);
+        studentsData = data || [];
+        setStudents(studentsData);
       }
 
-      // Fetch assignments
+      // Fetch assignments for this classroom
       const { data: assignmentsData } = await supabase
         .from("assignments")
-        .select("*")
+        .select("*, assignment_exercises(exercise_id)")
         .eq("classroom_id", classroomId)
         .order("created_at", { ascending: false });
-      setAssignments(assignmentsData || []);
 
+      if (!assignmentsData) { setLoading(false); return; }
+
+      // For each assignment, calculate real completion stats
+      const enriched = await Promise.all(
+        assignmentsData.map(async (a) => {
+          const exerciseIds = a.assignment_exercises.map((ae: any) => ae.exercise_id);
+          let completedStudents = 0;
+
+          if (exerciseIds.length > 0 && studentsData.length > 0) {
+            for (const student of studentsData) {
+              const { data: completions } = await supabase
+                .from("completions")
+                .select("exercise_id")
+                .eq("student_id", student.id)
+                .in("exercise_id", exerciseIds);
+
+              if ((completions || []).length === exerciseIds.length) {
+                completedStudents++;
+              }
+            }
+          }
+
+          return {
+            ...a,
+            completedStudents,
+            exerciseCount: exerciseIds.length,
+          };
+        })
+      );
+
+      setAssignments(enriched);
       setLoading(false);
     };
 
@@ -76,10 +108,7 @@ const ClassroomDetail = () => {
         <div className="text-center py-20">
           <span className="text-6xl block mb-4">🤷</span>
           <h1 className="font-fredoka text-2xl font-bold">Classroom not found</h1>
-          <Button
-            className="mt-4 rounded-xl"
-            onClick={() => navigate("/teacher/classrooms")}
-          >
+          <Button className="mt-4 rounded-xl" onClick={() => navigate("/teacher/classrooms")}>
             Back to Classrooms
           </Button>
         </div>
@@ -103,19 +132,15 @@ const ClassroomDetail = () => {
           <h1 className="font-fredoka text-3xl font-bold">{classroom.name}</h1>
           <p className="text-muted-foreground mt-1">
             Join Code:{" "}
-            <span className="font-mono font-bold text-foreground">
-              {classroom.code}
-            </span>{" "}
-            • {students.length} students
+            <span className="font-mono font-bold text-foreground">{classroom.code}</span>
+            {" "}• {students.length} students
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Student Roster */}
           <div>
-            <h2 className="font-fredoka text-xl font-bold mb-4">
-              Students 👨‍🎓
-            </h2>
+            <h2 className="font-fredoka text-xl font-bold mb-4">Students 👨‍🎓</h2>
             <div className="bg-card rounded-2xl shadow-playful overflow-hidden">
               {students.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
@@ -123,10 +148,8 @@ const ClassroomDetail = () => {
                   <p className="font-fredoka font-bold">No students yet</p>
                   <p className="text-sm mt-1">
                     Share code{" "}
-                    <span className="font-mono font-bold text-foreground">
-                      {classroom.code}
-                    </span>{" "}
-                    with your students
+                    <span className="font-mono font-bold text-foreground">{classroom.code}</span>
+                    {" "}with your students
                   </p>
                 </div>
               ) : (
@@ -141,27 +164,16 @@ const ClassroomDetail = () => {
                   </thead>
                   <tbody>
                     {students.map((student) => (
-                      <tr
-                        key={student.id}
-                        className="border-b border-border last:border-0"
-                      >
+                      <tr key={student.id} className="border-b border-border last:border-0">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xl">{student.avatar}</span>
-                            <span className="font-semibold text-sm">
-                              {student.name}
-                            </span>
+                            <span className="font-semibold text-sm">{student.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-fredoka font-bold">
-                          {student.level}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-primary font-semibold">
-                          {student.xp}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          🔥 {student.streak}
-                        </td>
+                        <td className="px-4 py-3 font-fredoka font-bold">{student.level}</td>
+                        <td className="px-4 py-3 text-sm text-primary font-semibold">{student.xp}</td>
+                        <td className="px-4 py-3 text-sm">🔥 {student.streak}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -172,37 +184,44 @@ const ClassroomDetail = () => {
 
           {/* Assignments */}
           <div>
-            <h2 className="font-fredoka text-xl font-bold mb-4">
-              Assignments 📋
-            </h2>
+            <h2 className="font-fredoka text-xl font-bold mb-4">Assignments 📋</h2>
             <div className="space-y-3">
               {assignments.length === 0 ? (
                 <div className="bg-card rounded-2xl p-6 text-center text-muted-foreground shadow-sm">
                   No assignments yet
                 </div>
               ) : (
-                assignments.map((assignment) => (
-                  <div
-                    key={assignment.id}
-                    className="bg-card rounded-2xl p-4 shadow-sm"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold">{assignment.title}</h3>
-                      <span className="text-xs bg-muted rounded-lg px-2 py-1">
-                        Due: {assignment.due_date}
-                      </span>
+                assignments.map((assignment) => {
+                  const progressPercent = students.length > 0
+                    ? Math.round((assignment.completedStudents / students.length) * 100)
+                    : 0;
+
+                  return (
+                    <div key={assignment.id} className="bg-card rounded-2xl p-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <h3 className="font-semibold">{assignment.title}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            {assignment.exerciseCount} exercise{assignment.exerciseCount !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <span className="text-xs bg-muted rounded-lg px-2 py-1">
+                          Due: {new Date(assignment.due_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="bg-muted rounded-full h-2 overflow-hidden mb-1">
+                        <div
+                          className={`h-full rounded-full transition-all ${progressPercent === 100 ? "bg-green-500" : "bg-primary"}`}
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {assignment.completedStudents}/{students.length} students completed
+                        {progressPercent > 0 && ` (${progressPercent}%)`}
+                      </p>
                     </div>
-                    <div className="bg-muted rounded-full h-2 overflow-hidden mb-1">
-                      <div
-                        className="h-full bg-accent rounded-full"
-                        style={{ width: `0%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      0/{students.length} completed
-                    </p>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

@@ -4,6 +4,17 @@ import { LayoutDashboard, Users, School, BookOpen, ClipboardList, BarChart3, Set
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/admin/dashboard" },
@@ -18,59 +29,83 @@ const navItems = [
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
+  const handleLogoutConfirm = async () => {
+    setShowLogoutDialog(false);
+    await logout();
+    navigate("/", { replace: true });
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
-      <aside className="w-60 border-r border-border bg-card flex flex-col">
-        <div className="p-4 border-b border-border">
-          <h1 className="font-fredoka text-lg font-bold text-foreground">Codey Admin</h1>
-        </div>
-        <nav className="flex-1 p-2 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )
-              }
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="p-3 border-t border-border">
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
-          <div />
-          <div className="flex items-center gap-3">
-            <Badge variant="destructive" className="text-xs">ADMIN</Badge>
-            <span className="text-sm font-medium text-foreground">{user?.name}</span>
+    <>
+      <div className="min-h-screen flex bg-background">
+        {/* Sidebar */}
+        <aside className="w-60 border-r border-border bg-card flex flex-col">
+          <div className="p-4 border-b border-border">
+            <h1 className="font-fredoka text-lg font-bold text-foreground">Codey Admin</h1>
           </div>
-        </header>
-        <main className="flex-1 p-6 overflow-auto">
-          {children}
-        </main>
+          <nav className="flex-1 p-2 space-y-1">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )
+                }
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="p-3 border-t border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 text-muted-foreground"
+              onClick={() => setShowLogoutDialog(true)}
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
+        </aside>
+
+        {/* Main */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
+            <div />
+            <div className="flex items-center gap-3">
+              <Badge variant="destructive" className="text-xs">ADMIN</Badge>
+              <span className="text-sm font-medium text-foreground">{user?.name}</span>
+            </div>
+          </header>
+          <main className="flex-1 p-6 overflow-auto">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Do you want to log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Would you like to log out and return to the home screen?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, stay here</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogoutConfirm}>Yes, log out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

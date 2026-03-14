@@ -1,3 +1,5 @@
+// src/pages/student/Exercise.tsx
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -19,6 +21,7 @@ const Exercise = () => {
   const [showHints, setShowHints] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     if (!exerciseId || !user) return;
@@ -59,15 +62,64 @@ const Exercise = () => {
   }, [exerciseId, user]);
 
   const handleRun = () => {
-    setOutput([
-      "▶ Running code...",
-      `> ${code.split("\n")[0]}`,
-      "✅ No errors!",
-    ]);
+    setRunning(true);
+    const logs: string[] = [];
+
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+    const originalConsoleWarn = console.warn;
+
+    console.log = (...args) => {
+      logs.push(
+        args.map((a) => {
+          if (typeof a === "object") {
+            try { return JSON.stringify(a, null, 2); }
+            catch { return String(a); }
+          }
+          return String(a);
+        }).join(" ")
+      );
+    };
+
+    console.error = (...args) => {
+      logs.push("❌ " + args.map(String).join(" "));
+    };
+
+    console.warn = (...args) => {
+      logs.push("⚠️ " + args.map(String).join(" "));
+    };
+
+    try {
+      // print() alias so kids can use either print() or console.log()
+      const print = (...args: any[]) => console.log(...args);
+
+      // eslint-disable-next-line no-new-func
+      const fn = new Function("print", code);
+      fn(print);
+
+      if (logs.length === 0) {
+        logs.push("✅ Code ran successfully (no output)");
+        logs.push("💡 Tip: Use console.log() or print() to see values");
+      } else {
+        logs.push("✅ Done!");
+      }
+    } catch (err: any) {
+      logs.push(`❌ Error: ${err.message}`);
+    } finally {
+      console.log = originalConsoleLog;
+      console.error = originalConsoleError;
+      console.warn = originalConsoleWarn;
+    }
+
+    setOutput(logs);
+    setRunning(false);
   };
 
   const handleSubmit = async () => {
     if (!user || !exercise || submitted) return;
+
+    // Run the code first so student sees output
+    handleRun();
 
     const { error } = await supabase.from("completions").insert({
       student_id: user.id,
@@ -84,7 +136,6 @@ const Exercise = () => {
         .update({ xp: newXP, level: newLevel })
         .eq("id", user.id);
 
-      // Update the UI instantly without needing a page reload
       updateUser({ xp: newXP, level: newLevel });
 
       setSubmitted(true);
@@ -128,6 +179,7 @@ const Exercise = () => {
   return (
     <AppLayout>
       <div className="h-[calc(100vh-8rem)] flex flex-col animate-slide-up">
+
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -153,7 +205,8 @@ const Exercise = () => {
 
         {/* Main content */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
-          {/* Left: Instructions */}
+
+          {/* Left: Instructions + Hints */}
           <div className="flex flex-col gap-4 overflow-auto">
             <div className="bg-card rounded-2xl p-5 shadow-playful flex-1 overflow-auto">
               <h2 className="font-fredoka text-lg font-bold mb-3">📋 Instructions</h2>
@@ -162,7 +215,6 @@ const Exercise = () => {
               </div>
             </div>
 
-            {/* Hints */}
             {exercise.hints && exercise.hints.length > 0 && (
               <div className="bg-banana/30 rounded-2xl p-4 shadow-sm">
                 <button
@@ -191,7 +243,7 @@ const Exercise = () => {
             )}
           </div>
 
-          {/* Right: Editor + Console */}
+          {/* Right: Editor + Console + Buttons */}
           <div className="flex flex-col gap-4 min-h-0">
             <div className="bg-card rounded-2xl shadow-playful flex-1 overflow-hidden flex flex-col min-h-0">
               <div className="px-4 py-2 border-b border-border flex items-center gap-2">
@@ -218,14 +270,22 @@ const Exercise = () => {
             </div>
 
             {/* Console */}
-            <div className="bg-foreground/5 rounded-2xl shadow-sm h-32 flex flex-col">
-              <div className="px-4 py-2 border-b border-border">
+            <div className="bg-foreground/5 rounded-2xl shadow-sm h-36 flex flex-col">
+              <div className="px-4 py-2 border-b border-border flex items-center justify-between">
                 <span className="text-sm font-fredoka font-bold">📟 Console Output</span>
+                {output.length > 0 && (
+                  <button
+                    onClick={() => setOutput([])}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
               <div className="flex-1 p-3 overflow-auto font-mono text-sm space-y-1">
                 {output.length === 0 ? (
-                  <p className="text-muted-foreground italic">
-                    Click "Run" to see output...
+                  <p className="text-muted-foreground italic text-xs">
+                    Click "Run" to execute your code...
                   </p>
                 ) : (
                   output.map((line, i) => (
@@ -233,8 +293,14 @@ const Exercise = () => {
                       key={i}
                       className={
                         line.startsWith("✅") || line.startsWith("🎉")
-                          ? "text-accent-foreground font-semibold"
-                          : ""
+                          ? "text-green-600 font-semibold"
+                          : line.startsWith("❌")
+                          ? "text-red-500 font-semibold"
+                          : line.startsWith("⚠️")
+                          ? "text-yellow-600"
+                          : line === ""
+                          ? "my-1"
+                          : "text-foreground"
                       }
                     >
                       {line}
@@ -250,8 +316,10 @@ const Exercise = () => {
                 variant="outline"
                 className="flex-1 rounded-xl h-11 font-bold border-2"
                 onClick={handleRun}
+                disabled={running}
               >
-                <Play className="h-4 w-4 mr-1" /> Run Code
+                <Play className="h-4 w-4 mr-1" />
+                {running ? "Running..." : "Run Code"}
               </Button>
               <Button
                 className="flex-1 rounded-xl h-11 font-bold shadow-playful"
