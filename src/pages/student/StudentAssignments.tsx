@@ -1,8 +1,17 @@
+// src/pages/student/StudentAssignments.tsx
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+
+// Icon per exercise type
+const typeIcon: Record<string, string> = {
+  code: "💻",
+  visual: "🎮",
+  interactive: "👆",
+};
 
 const StudentAssignments = () => {
   const navigate = useNavigate();
@@ -71,6 +80,16 @@ const StudentAssignments = () => {
     fetchAssignments();
   }, [user]);
 
+  // Navigate based on exercise type
+  const handleExerciseClick = (ex: any) => {
+    if (ex.type === "visual") {
+      navigate(`/playground?exercise=${ex.id}`);
+    } else {
+      // both "code" and "interactive" go to /exercise/:id
+      navigate(`/exercise/${ex.id}`);
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -87,7 +106,7 @@ const StudentAssignments = () => {
     <AppLayout>
       <div className="max-w-3xl mx-auto animate-slide-up">
         <h1 className="font-fredoka text-3xl font-bold mb-2">My Assignments 📋</h1>
-        <p className="text-muted-foreground mb-8">Complete your coding assignments!</p>
+        <p className="text-muted-foreground mb-8">Complete your assignments!</p>
 
         {assignments.length === 0 ? (
           <div className="text-center py-20">
@@ -110,6 +129,7 @@ const StudentAssignments = () => {
 
               return (
                 <div key={assignment.id} className="bg-card rounded-2xl p-5 shadow-playful">
+                  {/* Assignment header */}
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="font-fredoka text-lg font-bold">{assignment.title}</h3>
@@ -127,37 +147,57 @@ const StudentAssignments = () => {
                   </div>
 
                   {/* Progress bar */}
-                  <div className="bg-muted rounded-full h-2 overflow-hidden mb-3">
+                  <div className="bg-muted rounded-full h-2 overflow-hidden mb-4">
                     <div
-                      className={`h-full rounded-full transition-all ${allDone ? "bg-green-500" : "bg-primary"}`}
+                      className={`h-full rounded-full transition-all ${
+                        allDone ? "bg-green-500" : "bg-primary"
+                      }`}
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
 
+                  {/* Levels list */}
                   <div className="space-y-2">
-                    {validExercises.map((ex: any) => {
+                    {validExercises.map((ex: any, index: number) => {
                       const isCompleted = completedIds.has(ex.id);
                       return (
                         <button
                           key={ex.id}
-                          onClick={() => navigate(
-                            ex.type === "visual"
-                              ? `/playground?exercise=${ex.id}`
-                              : `/exercise/${ex.id}`
-                          )}
+                          onClick={() => handleExerciseClick(ex)}
                           className="w-full flex items-center gap-3 bg-muted rounded-xl p-3 text-left hover:bg-primary/10 transition-all text-sm"
                         >
-                          <span>{isCompleted ? "✅" : "⬜"}</span>
-                          <span className={`flex-1 ${isCompleted ? "line-through text-muted-foreground" : ""}`}>
-                            {ex.title}
+                          {/* Completion status */}
+                          <span className="text-lg flex-shrink-0">
+                            {isCompleted ? "✅" : "⬜"}
                           </span>
-                          <span className="text-xs text-primary font-semibold">
+
+                          {/* Type icon + Level label */}
+                          <span className="text-base flex-shrink-0">
+                            {typeIcon[ex.type] || "📝"}
+                          </span>
+
+                          <span className={`flex-1 font-medium ${
+                            isCompleted ? "line-through text-muted-foreground" : ""
+                          }`}>
+                            Level {index + 1}: {ex.title}
+                          </span>
+
+                          <span className="text-xs text-primary font-semibold flex-shrink-0">
                             +{ex.xp_reward} XP
                           </span>
                         </button>
                       );
                     })}
                   </div>
+
+                  {/* All done celebration */}
+                  {allDone && (
+                    <div className="mt-4 bg-green-50 rounded-xl p-3 text-center">
+                      <p className="font-fredoka text-green-700 font-bold">
+                        🎉 Assignment Complete! Great work!
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

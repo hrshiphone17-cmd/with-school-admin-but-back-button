@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import SchoolAdminStudents from "./pages/school-admin/SchoolAdminStudents";
 import SchoolAdminAnalytics from "./pages/school-admin/SchoolAdminAnalytics";
 import SchoolAdminTeachers from "./pages/school-admin/SchoolAdminTeachers";
@@ -78,7 +80,7 @@ function BackButtonGuard() {
       guardAdded.current = true;
     }
 
-    const handlePopState = (event: PopStateEvent) => {
+    const handlePopState = () => {
       if (dashboardRoutes.includes(location.pathname)) {
         setShowDialog(true);
         window.history.pushState({ dashboardGuard: true }, "");
@@ -86,10 +88,7 @@ function BackButtonGuard() {
     };
 
     window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
+    return () => window.removeEventListener("popstate", handlePopState);
   }, [location.pathname, user]);
 
   const handleLogout = async () => {
@@ -99,9 +98,7 @@ function BackButtonGuard() {
     navigate("/", { replace: true });
   };
 
-  const handleStay = () => {
-    setShowDialog(false);
-  };
+  const handleStay = () => setShowDialog(false);
 
   return (
     <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
@@ -112,15 +109,9 @@ function BackButtonGuard() {
             Would you like to log out and return to the home screen?
           </AlertDialogDescription>
         </AlertDialogHeader>
-
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleStay}>
-            No, stay here
-          </AlertDialogCancel>
-
-          <AlertDialogAction onClick={handleLogout}>
-            Yes, log out
-          </AlertDialogAction>
+          <AlertDialogCancel onClick={handleStay}>No, stay here</AlertDialogCancel>
+          <AlertDialogAction onClick={handleLogout}>Yes, log out</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -131,12 +122,10 @@ function BackButtonGuard() {
 
 function DashboardRedirect() {
   const { user } = useAuth();
-
   if (!user) return <Navigate to="/role-select" replace />;
   if (user.role === "admin") return <Navigate to="/admin/dashboard" replace />;
   if (user.role === "school_admin") return <Navigate to="/school-admin/dashboard" replace />;
   if (user.role === "teacher") return <Navigate to="/teacher/dashboard" replace />;
-
   return <Navigate to="/student/dashboard" replace />;
 }
 
@@ -144,12 +133,10 @@ function DashboardRedirect() {
 
 function RedirectIfLoggedIn({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-
   if (user?.role === "admin") return <Navigate to="/admin/dashboard" replace />;
   if (user?.role === "school_admin") return <Navigate to="/school-admin/dashboard" replace />;
   if (user?.role === "teacher") return <Navigate to="/teacher/dashboard" replace />;
   if (user?.role === "student") return <Navigate to="/student/dashboard" replace />;
-
   return <>{children}</>;
 }
 
@@ -164,7 +151,6 @@ function RequireAuth({ children, role }: RequireAuthProps) {
   const { user } = useAuth();
 
   if (!user) return <Navigate to="/role-select" replace />;
-
   if (user.role === "admin") return <Navigate to="/admin/dashboard" replace />;
   if (user.role === "school_admin") return <Navigate to="/school-admin/dashboard" replace />;
 
@@ -183,23 +169,26 @@ const AppRoutes = () => (
     <BackButtonGuard />
 
     <Routes>
+      {/* Public */}
       <Route path="/" element={<Landing />} />
-
       <Route path="/role-select" element={<RedirectIfLoggedIn><RoleSelect /></RedirectIfLoggedIn>} />
       <Route path="/login/student" element={<RedirectIfLoggedIn><StudentLogin /></RedirectIfLoggedIn>} />
       <Route path="/login/teacher" element={<RedirectIfLoggedIn><TeacherLogin /></RedirectIfLoggedIn>} />
 
       <Route path="/dashboard" element={<DashboardRedirect />} />
 
+      {/* Student only */}
       <Route path="/student/dashboard" element={<RequireAuth role="student"><StudentDashboard /></RequireAuth>} />
       <Route path="/assignments" element={<RequireAuth role="student"><StudentAssignments /></RequireAuth>} />
       <Route path="/my-classroom" element={<RequireAuth role="student"><MyClassroom /></RequireAuth>} />
 
-      <Route path="/courses" element={<RequireAuth role="student"><Courses /></RequireAuth>} />
-      <Route path="/courses/:courseId" element={<RequireAuth role="student"><CourseDetail /></RequireAuth>} />
-      <Route path="/exercise/:exerciseId" element={<RequireAuth role="student"><Exercise /></RequireAuth>} />
-      <Route path="/playground" element={<RequireAuth role="student"><VisualGame /></RequireAuth>} />
+      {/* Shared — students AND teachers can access, no role restriction */}
+      <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />
+      <Route path="/courses/:courseId" element={<RequireAuth><CourseDetail /></RequireAuth>} />
+      <Route path="/exercise/:exerciseId" element={<RequireAuth><Exercise /></RequireAuth>} />
+      <Route path="/playground" element={<RequireAuth><VisualGame /></RequireAuth>} />
 
+      {/* Teacher only */}
       <Route path="/teacher/dashboard" element={<RequireAuth role="teacher"><TeacherDashboard /></RequireAuth>} />
       <Route path="/teacher/classrooms" element={<RequireAuth role="teacher"><Classrooms /></RequireAuth>} />
       <Route path="/teacher/classrooms/:classroomId" element={<RequireAuth role="teacher"><ClassroomDetail /></RequireAuth>} />
@@ -207,8 +196,8 @@ const AppRoutes = () => (
       <Route path="/teacher/analytics" element={<RequireAuth role="teacher"><Analytics /></RequireAuth>} />
       <Route path="/teacher/leaderboard" element={<RequireAuth role="teacher"><Leaderboard /></RequireAuth>} />
 
+      {/* Platform Admin */}
       <Route path="/x/admin-login" element={<AdminLogin />} />
-
       <Route path="/admin/dashboard" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
       <Route path="/admin/users" element={<ProtectedAdminRoute><AdminUsers /></ProtectedAdminRoute>} />
       <Route path="/admin/classrooms" element={<ProtectedAdminRoute><AdminClassrooms /></ProtectedAdminRoute>} />
@@ -217,6 +206,7 @@ const AppRoutes = () => (
       <Route path="/admin/analytics" element={<ProtectedAdminRoute><AdminAnalytics /></ProtectedAdminRoute>} />
       <Route path="/admin/settings" element={<ProtectedAdminRoute><AdminSettings /></ProtectedAdminRoute>} />
 
+      {/* School Admin */}
       <Route path="/school-admin/login" element={<RedirectIfLoggedIn><SchoolAdminLogin /></RedirectIfLoggedIn>} />
       <Route path="/school-admin/dashboard" element={<ProtectedSchoolAdminRoute><SchoolAdminDashboard /></ProtectedSchoolAdminRoute>} />
       <Route path="/school-admin/teachers" element={<ProtectedSchoolAdminRoute><SchoolAdminTeachers /></ProtectedSchoolAdminRoute>} />
@@ -233,7 +223,6 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />

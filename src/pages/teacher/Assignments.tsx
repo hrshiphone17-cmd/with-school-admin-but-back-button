@@ -10,12 +10,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
+const typeIcon: Record<string, string> = {
+  code: "💻",
+  visual: "🎮",
+  interactive: "👆",
+};
+
 const Assignments = () => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
-  const [exercises, setExercises] = useState<any[]>([]);
+  const [groupedExercises, setGroupedExercises] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +50,7 @@ const Assignments = () => {
     setClassrooms(classroomsData);
     if (classroomsData.length > 0) setClassroomId(classroomsData[0].id);
 
-    // Fetch assignments for those classrooms
+    // Fetch assignments
     const { data: assignmentsData } = await supabase
       .from("assignments")
       .select("*, assignment_exercises(exercise_id)")
@@ -53,12 +59,11 @@ const Assignments = () => {
 
     if (!assignmentsData) { setLoading(false); return; }
 
-    // For each assignment, get full student breakdown
+    // Enrich each assignment with student progress
     const enriched = await Promise.all(
       assignmentsData.map(async (a) => {
         const exerciseIds = a.assignment_exercises.map((ae: any) => ae.exercise_id);
 
-        // Get all students in this classroom
         const { data: studentLinks } = await supabase
           .from("classroom_students")
           .select("student_id")
@@ -66,7 +71,6 @@ const Assignments = () => {
 
         const studentIds = (studentLinks || []).map((s) => s.student_id);
 
-        // Fetch student details
         let studentDetails: any[] = [];
         if (studentIds.length > 0) {
           const { data: studentsData } = await supabase
@@ -76,7 +80,6 @@ const Assignments = () => {
           studentDetails = studentsData || [];
         }
 
-        // For each student, check how many exercises they completed
         const studentProgress = await Promise.all(
           studentDetails.map(async (student) => {
             if (exerciseIds.length === 0) {
@@ -98,39 +101,57 @@ const Assignments = () => {
           })
         );
 
-        const completedStudents = studentProgress.filter((s) => s.allDone).length;
-        const totalStudents = studentDetails.length;
-
-        // Fetch exercise details
         let exerciseDetails: any[] = [];
         if (exerciseIds.length > 0) {
           const { data: exData } = await supabase
             .from("exercises")
-            .select("id, title, xp_reward, difficulty")
+            .select("id, title, xp_reward, difficulty, type")
             .in("id", exerciseIds);
           exerciseDetails = exData || [];
         }
 
         return {
           ...a,
-          totalStudents,
-          completedStudents,
+          totalStudents: studentDetails.length,
+          completedStudents: studentProgress.filter((s) => s.allDone).length,
           exerciseDetails,
           exerciseCount: exerciseIds.length,
-          studentProgress, // per-student breakdown
+          studentProgress,
         };
       })
     );
 
     setAssignments(enriched);
 
-    // Fetch all exercises for the create form
-    const { data: exercisesData } = await supabase
-      .from("exercises")
-      .select("*, modules(title)")
-      .order("order_index");
-    setExercises(exercisesData || []);
+    // Fetch exercises grouped by course → module for the picker
+    const { data: courses } = await supabase
+      .from("courses")
+      .select("id, title, icon")
+      .order("created_at");
 
+    const { data: modules } = await supabase
+      .from("modules")
+      .select("id, title, course_id, icon")
+      .order("order_index");
+
+    const { data: exercises } = await supabase
+      .from("exercises")
+      .select("id, title, type, difficulty, xp_reward, module_id")
+      .order("order_index");
+
+    // Build grouped structure: course → modules → exercises
+    const grouped = (courses || []).map((course) => ({
+      ...course,
+      modules: (modules || [])
+        .filter((m) => m.course_id === course.id)
+        .map((module) => ({
+          ...module,
+          exercises: (exercises || []).filter((e) => e.module_id === module.id),
+        }))
+        .filter((m) => m.exercises.length > 0),
+    })).filter((c) => c.modules.length > 0);
+
+    setGroupedExercises(grouped);
     setLoading(false);
   };
 
@@ -140,6 +161,16 @@ const Assignments = () => {
     setSelectedExercises((prev) =>
       prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
     );
+  };
+
+  // Select all exercises from a module at once
+  const toggleModule = (moduleExerciseIds: string[]) => {
+    const allSelected = moduleExerciseIds.every((id) => selectedExercises.includes(id));
+    if (allSelected) {
+      setSelectedExercises((prev) => prev.filter((id) => !moduleExerciseIds.includes(id)));
+    } else {
+      setSelectedExercises((prev) => [...new Set([...prev, ...moduleExerciseIds])]);
+    }
   };
 
   const handleCreate = async () => {
@@ -187,7 +218,7 @@ const Assignments = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-fredoka text-3xl font-bold">Assignments 📋</h1>
-            <p className="text-muted-foreground">Create and manage coding assignments</p>
+            <p className="text-muted-foreground">Create and manage assignments</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -195,7 +226,7 @@ const Assignments = () => {
                 <Plus className="h-5 w-5 mr-1" /> New Assignment
               </Button>
             </DialogTrigger>
-            <DialogContent className="rounded-3xl max-w-lg">
+            <DialogContent className="rounded-3xl max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="font-fredoka text-xl">Create Assignment</DialogTitle>
               </DialogHeader>
@@ -203,7 +234,7 @@ const Assignments = () => {
                 <div className="space-y-2">
                   <Label className="font-semibold">Title</Label>
                   <Input
-                    placeholder="e.g., Loops Practice"
+                    placeholder="e.g., Tap Pictures Practice"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="rounded-xl h-12 border-2"
@@ -234,30 +265,71 @@ const Assignments = () => {
                     className="rounded-xl h-12 border-2"
                   />
                 </div>
+
+                {/* Grouped exercise picker */}
                 <div className="space-y-2">
                   <Label className="font-semibold">
-                    Select Exercises ({selectedExercises.length} selected)
+                    Select Levels ({selectedExercises.length} selected)
                   </Label>
-                  <div className="max-h-40 overflow-auto space-y-2 bg-muted rounded-xl p-3">
-                    {exercises.map((e) => (
-                      <label
-                        key={e.id}
-                        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-background rounded-lg p-1"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedExercises.includes(e.id)}
-                          onChange={() => toggleExercise(e.id)}
-                          className="rounded"
-                        />
-                        <span>{e.title}</span>
-                        <span className="text-xs text-muted-foreground ml-auto capitalize">
-                          {e.difficulty}
-                        </span>
-                      </label>
+                  <div className="max-h-64 overflow-auto space-y-3 bg-muted rounded-xl p-3">
+                    {groupedExercises.map((course) => (
+                      <div key={course.id}>
+                        {/* Course heading */}
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                          {course.icon} {course.title}
+                        </p>
+                        {course.modules.map((module: any) => {
+                          const moduleExIds = module.exercises.map((e: any) => e.id);
+                          const allSelected = moduleExIds.every((id: string) =>
+                            selectedExercises.includes(id)
+                          );
+                          return (
+                            <div key={module.id} className="mb-2">
+                              {/* Module row — click to select all levels in module */}
+                              <button
+                                type="button"
+                                onClick={() => toggleModule(moduleExIds)}
+                                className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-left transition-colors ${
+                                  allSelected
+                                    ? "bg-primary/20 text-primary"
+                                    : "hover:bg-background"
+                                }`}
+                              >
+                                <span>{module.icon}</span>
+                                <span>{module.title}</span>
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                  {allSelected ? "✅ All selected" : `Select all ${moduleExIds.length}`}
+                                </span>
+                              </button>
+                              {/* Individual exercise rows */}
+                              <div className="pl-4 mt-1 space-y-1">
+                                {module.exercises.map((ex: any, idx: number) => (
+                                  <label
+                                    key={ex.id}
+                                    className="flex items-center gap-2 text-sm cursor-pointer hover:bg-background rounded-lg p-1"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedExercises.includes(ex.id)}
+                                      onChange={() => toggleExercise(ex.id)}
+                                      className="rounded"
+                                    />
+                                    <span>{typeIcon[ex.type] || "📝"}</span>
+                                    <span>Level {idx + 1}: {ex.title}</span>
+                                    <span className="text-xs text-primary font-semibold ml-auto">
+                                      +{ex.xp_reward} XP
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     ))}
                   </div>
                 </div>
+
                 {error && (
                   <div className="bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm">
                     ❌ {error}
@@ -288,10 +360,7 @@ const Assignments = () => {
             <p className="text-muted-foreground mb-6">
               Create your first assignment for your students
             </p>
-            <Button
-              className="rounded-2xl font-bold shadow-playful"
-              onClick={() => setOpen(true)}
-            >
+            <Button className="rounded-2xl font-bold shadow-playful" onClick={() => setOpen(true)}>
               <Plus className="h-5 w-5 mr-1" /> New Assignment
             </Button>
           </div>
@@ -307,8 +376,6 @@ const Assignments = () => {
 
               return (
                 <div key={assignment.id} className="bg-card rounded-2xl shadow-playful overflow-hidden">
-
-                  {/* Clickable header */}
                   <button
                     className="w-full p-5 text-left hover:bg-muted/30 transition-colors"
                     onClick={() => setExpandedId(isExpanded ? null : assignment.id)}
@@ -336,34 +403,37 @@ const Assignments = () => {
                     </div>
                     <div className="bg-muted rounded-full h-3 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${progressPercent === 100 ? "bg-green-500" : "bg-primary"}`}
+                        className={`h-full rounded-full transition-all ${
+                          progressPercent === 100 ? "bg-green-500" : "bg-primary"
+                        }`}
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      {assignment.completedStudents}/{assignment.totalStudents} students completed all exercises
+                      {assignment.completedStudents}/{assignment.totalStudents} students completed all levels
                     </p>
                   </button>
 
-                  {/* Expanded section */}
                   {isExpanded && (
                     <div className="border-t border-border">
-
-                      {/* Exercises list */}
+                      {/* Levels list */}
                       <div className="px-5 pt-4 pb-3">
                         <p className="text-sm font-semibold mb-3">
-                          📚 Exercises ({assignment.exerciseCount})
+                          📚 Levels ({assignment.exerciseCount})
                         </p>
                         {assignment.exerciseDetails.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No exercises linked.</p>
+                          <p className="text-sm text-muted-foreground">No levels linked.</p>
                         ) : (
                           <div className="space-y-2">
-                            {assignment.exerciseDetails.map((ex: any) => (
+                            {assignment.exerciseDetails.map((ex: any, idx: number) => (
                               <div
                                 key={ex.id}
                                 className="flex items-center gap-3 bg-muted rounded-xl p-3 text-sm"
                               >
-                                <span className="flex-1 font-medium">{ex.title}</span>
+                                <span>{typeIcon[ex.type] || "📝"}</span>
+                                <span className="flex-1 font-medium">
+                                  Level {idx + 1}: {ex.title}
+                                </span>
                                 <span className="text-xs capitalize text-muted-foreground">
                                   {ex.difficulty}
                                 </span>
@@ -376,15 +446,13 @@ const Assignments = () => {
                         )}
                       </div>
 
-                      {/* Student breakdown — only show if there are students */}
+                      {/* Student breakdown */}
                       {assignment.studentProgress.length === 0 ? (
                         <div className="px-5 pb-5">
                           <p className="text-sm text-muted-foreground">No students in this classroom yet.</p>
                         </div>
                       ) : (
                         <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1">
-
-                          {/* Completed */}
                           <div className="bg-green-50 rounded-2xl p-4">
                             <p className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-2">
                               ✅ Completed
@@ -408,8 +476,6 @@ const Assignments = () => {
                               </div>
                             )}
                           </div>
-
-                          {/* Pending */}
                           <div className="bg-orange-50 rounded-2xl p-4">
                             <p className="text-sm font-semibold text-orange-700 mb-3 flex items-center gap-2">
                               ⏳ Pending
@@ -433,7 +499,6 @@ const Assignments = () => {
                               </div>
                             )}
                           </div>
-
                         </div>
                       )}
                     </div>
